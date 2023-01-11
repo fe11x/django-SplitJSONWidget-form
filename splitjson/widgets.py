@@ -13,6 +13,15 @@ if StrictVersion(get_version()) < StrictVersion('1.9.0'):
 else:
     from django.forms.utils import flatatt
 
+def force_unicode(value):
+    if isinstance(value, bytes):
+        return value.decode('utf-8')
+    elif isinstance(value, str):
+        return value
+    elif isinstance(value, int):
+        return str(value)
+    else:
+        raise TypeError('Expected a string value')
 
 class SplitJSONWidget(forms.Widget):
 
@@ -23,9 +32,9 @@ class SplitJSONWidget(forms.Widget):
         Widget.__init__(self, attrs)
 
     def _as_text_field(self, name, key, value, is_sub=False):
-        attrs = self.build_attrs(self.attrs, type='text',
-                                 name="%s%s%s" % (name, self.separator, key))
-        attrs['value'] = utils.encoding.force_unicode(value)
+        attrs = self.build_attrs(self.attrs, dict(type='text',
+                                 name="%s%s%s" % (name, self.separator, key)))
+        attrs['value'] = force_unicode(value)
         attrs['id'] = attrs.get('name', None)
         return u""" <label for="%s">%s:</label>
         <input%s />""" % (attrs['id'], key, flatatt(attrs))
@@ -47,7 +56,7 @@ class SplitJSONWidget(forms.Widget):
                                                      self.separator, key),
                                          value))
             inputs.extend([_l])
-        elif isinstance(json_obj, (basestring, int, float)):
+        elif isinstance(json_obj, (str, int, float)):
             name, _, key = name.rpartition(self.separator)
             inputs.append(self._as_text_field(name, key, json_obj))
         elif json_obj is None:
@@ -148,7 +157,7 @@ class SplitJSONWidget(forms.Widget):
         result = self._to_pack_up(name, data_copy)
         return json.dumps(result)
 
-    def render(self, name, value, attrs=None):
+    def render(self, name, value, attrs=None, renderer=None):
         try:
             value = json.loads(value)
         except (TypeError, KeyError):
